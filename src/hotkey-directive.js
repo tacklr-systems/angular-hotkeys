@@ -1,32 +1,32 @@
-function hotkeyDirective(hotkeys) {
-  return {
-    restrict: 'A',
-    link: function(scope, el, attrs) {
-      var keys = [];
+(function() {
 
-      angular.forEach(scope.$eval(attrs.hotkey), function(func, hotkey) {
-        // split and trim the hotkeys string into array
-        var allowIn = typeof attrs.hotkeyAllowIn === "string" ? attrs.hotkeyAllowIn.split(/[\s,]+/) : [];
+  'use strict';
+  angular.module('cfp.hotkeys').directive('hotkey', function hotkeyDirective(hotkeys) {
+    return {
+      restrict: 'A',
+      link: function(scope, el, attrs) {
+        var keys = [];
 
-        keys.push(hotkey);
+        angular.forEach(scope.$eval(attrs.hotkey), function(func, hotkey) {
+          // split and trim the hotkeys string into array
+          var allowIn = typeof attrs.hotkeyAllowIn === "string" ? attrs.hotkeyAllowIn.split(/[\s,]+/) : [];
 
-        hotkeys.add({
-          combo: hotkey,
-          description: attrs.hotkeyDescription,
-          callback: func,
-          action: attrs.hotkeyAction,
-          allowIn: allowIn
+          keys.push(hotkey);
+
+          hotkeys.add({
+            combo: hotkey,
+            description: attrs.hotkeyDescription,
+            callback: func,
+            action: attrs.hotkeyAction,
+            allowIn: allowIn
+          });
         });
-      });
 
-      // remove the hotkey if the directive is destroyed:
-      el.bind('$destroy', function() {
-        angular.forEach(keys, hotkeys.del);
-      });
-    }
-  };
-}
-
-hotkeyDirective.$inject = ['hotkeys'];
-
-angular.module('cfp.hotkeys').directive('hotkey', hotkeyDirective);
+        // remove the hotkey if the directive is destroyed:
+        el.bind('$destroy', function() {
+          angular.forEach(keys, hotkeys.del);
+        });
+      }
+    };
+  });
+})();

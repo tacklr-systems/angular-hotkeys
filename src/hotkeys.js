@@ -9,14 +9,14 @@
 
 (function() {
 
-    'use strict';
+  'use strict';
 
-    angular.module('cfp.hotkeys', [])
-        .run(function(hotkeys, hotkeysCheatSheet) {
-            // force hotkeys to run by injecting it. Without this, hotkeys only runs
-            // when a controller or something else asks for it via DI.
-            hotkeys.init();
-            hotkeysCheatSheet.init();
-        });
+  angular.module('cfp.hotkeys', [])
+    .run(function(hotkeys, hotkeysCheatSheet) {
+      // force hotkeys to run by injecting it. Without this, hotkeys only runs
+      // when a controller or something else asks for it via DI.
+      hotkeys.init();
+      hotkeysCheatSheet.init();
+    });
 
 })();

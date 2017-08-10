@@ -6,6 +6,7 @@ describe 'Angular Hotkeys', ->
   beforeEach ->
     module 'cfp.hotkeys', (hotkeysProvider) ->
       hotkeysProvider.useNgRoute = true
+      hotkeysProvider.useNgState = true
       return
 
     result = null
@@ -104,6 +105,21 @@ describe 'Angular Hotkeys', ->
 
     # ensure hotkey is unbound when the route changes
     $rootScope.$broadcast('$routeChangeSuccess', {});
+    expect(hotkeys.get('w e s')).toBe false
+
+  it 'should (un)bind based on state changes', ->
+    cfg =
+      combo: 'w e s'
+      callback: () -> 'null'
+
+    hotkeys.bindToState cfg, 'hotKeyState'
+    # fake a state change:
+    expect(hotkeys.get('w e s')).toBe false
+    $rootScope.$broadcast('$stateChangeSuccess', { name:'hotKeyState' } );
+    expect(hotkeys.get('w e s').combo).toEqual ['w e s']
+
+    # ensure hotkey is unbound when the state changes
+    $rootScope.$broadcast('$stateChangeSuccess', { name:'notHotKeyState' } );
     expect(hotkeys.get('w e s')).toBe false
 
   it 'should callback when the hotkey is pressed', ->
