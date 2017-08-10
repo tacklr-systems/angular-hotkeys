@@ -1,34 +1,34 @@
+angular.module('cfp.hotkeys').provider('hotkeys', ['$injector', function($injector) {
+  function hotkeysProviderFactory($rootElement, $rootScope, $compile, $window, Hotkey) {
+    var initialized = false;
 
-function hotkeysProviderFactory($rootElement, $rootScope, $compile, $window, Hotkey) {
-    let initialized = false
-
-    let mouseTrapEnabled = true;
+    var mouseTrapEnabled = true;
 
     function pause() {
-        mouseTrapEnabled = false;
+      mouseTrapEnabled = false;
     }
 
     function unpause() {
-        mouseTrapEnabled = true;
+      mouseTrapEnabled = true;
     }
 
     // monkeypatch Mousetrap's stopCallback() function
     // this version doesn't return true when the element is an INPUT, SELECT, or TEXTAREA
     // (instead we will perform this check per-key in the _add() method)
     Mousetrap.prototype.stopCallback = function(event, element) {
-        if (!mouseTrapEnabled) {
-            return true;
-        }
+      if (!mouseTrapEnabled) {
+        return true;
+      }
 
-        // if the element has the class "mousetrap" then no need to stop
-        if ((' ' + element.className + ' ').indexOf(' mousetrap ') > -1) {
-            return false;
-        }
+      // if the element has the class "mousetrap" then no need to stop
+      if ((' ' + element.className + ' ').indexOf(' mousetrap ') > -1) {
+        return false;
+      }
 
-        return (element.contentEditable && element.contentEditable == 'true');
+      return (element.contentEditable && element.contentEditable === 'true');
     };
 
-    let scope = {}
+    var scope = {};
 
     /**
      * Holds references to the different scopes that have bound hotkeys
@@ -37,49 +37,50 @@ function hotkeysProviderFactory($rootElement, $rootScope, $compile, $window, Hot
      *
      * @type {Object}
      */
-    let boundScopes = {}
+    var boundScopes = {};
 
     function init() {
-        if (!initialized) {
-            initialized = true
-            /**
-            * A new scope used internally for the cheatsheet
-            * @type {$rootScope.Scope}
-            */
-            scope = $rootScope.$new();
+      if (!initialized) {
 
-            /**
-            * Holds an array of Hotkey objects currently bound
-            * @type {Array}
-            */
-            scope.hotkeys = [];
+        initialized = true;
+        /**
+        * A new scope used internally for the cheatsheet
+        * @type {$rootScope.Scope}
+        */
+        scope = $rootScope.$new();
+
+        /**
+        * Holds an array of Hotkey objects currently bound
+        * @type {Array}
+        */
+        scope.hotkeys = [];
 
 
-            boundScopes = {};
+        boundScopes = {};
 
-            if (this.useNgRoute) {
-                $rootScope.$on('$routeChangeSuccess', function (event, route) {
-                    purgeHotkeys();
+        if (config.useNgRoute) {
+          $rootScope.$on('$routeChangeSuccess', function (event, route) {
+            purgeHotkeys();
 
-                    if (route && route.hotkeys) {
-                        angular.forEach(route.hotkeys, function (hotkey) {
-                            // a string was given, which implies this is a function that is to be
-                            // $eval()'d within that controller's scope
-                            // TODO: hotkey here is super confusing.  sometimes a function (that gets turned into an array), sometimes a string
-                            const callback = hotkey[2];
-                            if (typeof(callback) === 'string' || callback instanceof String) {
-                                hotkey[2] = [callback, route];
-                            }
+            if (route && route.hotkeys) {
+              angular.forEach(route.hotkeys, function (hotkey) {
+                // a string was given, which implies this is a function that is to be
+                // $eval()'d within that controller's scope
+                // TODO: hotkey here is super confusing.  sometimes a function (that gets turned into an array), sometimes a string
+                var callback = hotkey[2];
+                if (typeof(callback) === 'string' || callback instanceof String) {
+                  hotkey[2] = [callback, route];
+                }
 
-                            // todo: perform check to make sure not already defined:
-                            // this came from a route, so it's likely not meant to be persistent
-                            hotkey[5] = false;
-                            _add.apply(this, hotkey);
-                        })
-                    }
-                })
+                // todo: perform check to make sure not already defined:
+                // this came from a route, so it's likely not meant to be persistent
+                hotkey[5] = false;
+                _add.apply(this, hotkey);
+              });
             }
+          });
         }
+      }
     }
 
     /**
@@ -89,13 +90,13 @@ function hotkeysProviderFactory($rootElement, $rootScope, $compile, $window, Hot
      * the route is accessed.
      */
     function purgeHotkeys() {
-        let i = scope.hotkeys.length;
-        while (i--) {
-            const hotkey = scope.hotkeys[i];
-            if (hotkey && !hotkey.persistent) {
-                _del(hotkey);
-            }
+      var i = scope.hotkeys.length;
+      while (i--) {
+        var hotkey = scope.hotkeys[i];
+        if (hotkey && !hotkey.persistent) {
+          _del(hotkey);
         }
+      }
     }
 
     /**
@@ -108,24 +109,24 @@ function hotkeysProviderFactory($rootElement, $rootScope, $compile, $window, Hot
      * @param {array}    allowIn     an array of tag names to allow this combo in ('INPUT', 'SELECT', and/or 'TEXTAREA')
      * @param {boolean}  persistent  if true, the binding is preserved upon route changes
      */
-    function _add (combo, description, callback, action, allowIn, persistent) {
+    function _add(combo, description, callback, action, allowIn, persistent) {
 
         // used to save original callback for "allowIn" wrapping:
-        let _callback;
+        var _callback;
 
         // these elements are prevented by the default Mousetrap.stopCallback():
-        const preventIn = ['INPUT', 'SELECT', 'TEXTAREA'];
+        var preventIn = ['INPUT', 'SELECT', 'TEXTAREA'];
 
         // Determine if object format was given:
-        const objType = Object.prototype.toString.call(combo);
+        var objType = Object.prototype.toString.call(combo);
 
         if (objType === '[object Object]') {
-            description = combo.description;
-            callback    = combo.callback;
-            action      = combo.action;
-            persistent  = combo.persistent;
-            allowIn     = combo.allowIn;
-            combo       = combo.combo;
+          description = combo.description;
+          callback    = combo.callback;
+          action      = combo.action;
+          persistent  = combo.persistent;
+          allowIn     = combo.allowIn;
+          combo       = combo.combo;
         }
 
         // no duplicates please
@@ -133,18 +134,18 @@ function hotkeysProviderFactory($rootElement, $rootScope, $compile, $window, Hot
 
         // description is optional:
         if (description instanceof Function) {
-            action = callback;
-            callback = description;
-            description = '$$undefined$$';
+          action = callback;
+          callback = description;
+          description = '$$undefined$$';
         } else if (angular.isUndefined(description)) {
-            description = '$$undefined$$';
+          description = '$$undefined$$';
         }
 
         // any items added through the public API are for controllers
         // that persist through navigation, and thus undefined should mean
         // true in this case.
         if (persistent === undefined) {
-            persistent = true;
+          persistent = true;
         }
         // if callback is defined, then wrap it in a function
         // that checks if the event originated from a form element.
@@ -152,61 +153,61 @@ function hotkeysProviderFactory($rootElement, $rootScope, $compile, $window, Hot
         // in allowIn (emulates Mousetrap.stopCallback() on a per-key level)
         if (typeof callback === 'function') {
 
-            // save the original callback
-            _callback = callback;
+          // save the original callback
+          _callback = callback;
 
-            // make sure allowIn is an array
-            if (!(allowIn instanceof Array)) {
-                allowIn = [];
+          // make sure allowIn is an array
+          if (!(allowIn instanceof Array)) {
+            allowIn = [];
+          }
+
+          // remove anything from preventIn that's present in allowIn
+          var index;
+          for (var i=0; i < allowIn.length; i++) {
+              allowIn[i] = allowIn[i].toUpperCase();
+              index = preventIn.indexOf(allowIn[i]);
+              if (index !== -1) {
+                  preventIn.splice(index, 1);
+              }
+          }
+
+          // create the new wrapper callback
+          callback = function(event) {
+            var shouldExecute = true;
+
+            // if the callback is executed directly `hotkey.get('w').callback()`
+            // there will be no event, so just execute the callback.
+            if (event) {
+              var target = event.target || event.srcElement; // srcElement is IE only
+              var nodeName = target.nodeName.toUpperCase();
+
+              // check if the input has a mousetrap class, and skip checking preventIn if so
+              if ((' ' + target.className + ' ').indexOf(' mousetrap ') > -1) {
+                shouldExecute = true;
+              } else {
+                // don't execute callback if the event was fired from inside an element listed in preventIn
+                for (var i=0; i<preventIn.length; i++) {
+                  if (preventIn[i] === nodeName) {
+                    shouldExecute = false;
+                    break;
+                  }
+                }
+              }
             }
 
-            // remove anything from preventIn that's present in allowIn
-            let index;
-            for (let i=0; i < allowIn.length; i++) {
-                allowIn[i] = allowIn[i].toUpperCase();
-                index = preventIn.indexOf(allowIn[i]);
-                if (index !== -1) {
-                    preventIn.splice(index, 1);
-                }
+            if (shouldExecute) {
+              wrapApply(_callback.apply(this, arguments));
             }
-
-            // create the new wrapper callback
-            callback = function(event) {
-                let shouldExecute = true;
-
-                // if the callback is executed directly `hotkey.get('w').callback()`
-                // there will be no event, so just execute the callback.
-                if (event) {
-                    const target = event.target || event.srcElement; // srcElement is IE only
-                    const nodeName = target.nodeName.toUpperCase();
-
-                    // check if the input has a mousetrap class, and skip checking preventIn if so
-                    if ((' ' + target.className + ' ').indexOf(' mousetrap ') > -1) {
-                        shouldExecute = true;
-                    } else {
-                        // don't execute callback if the event was fired from inside an element listed in preventIn
-                        for (let i=0; i<preventIn.length; i++) {
-                            if (preventIn[i] === nodeName) {
-                                shouldExecute = false;
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                if (shouldExecute) {
-                    wrapApply(_callback.apply(this, arguments));
-                }
-            };
+          };
         }
 
         if (typeof(action) === 'string') {
-            Mousetrap.bind(combo, wrapApply(callback), action);
+          Mousetrap.bind(combo, wrapApply(callback), action);
         } else {
-            Mousetrap.bind(combo, wrapApply(callback));
+          Mousetrap.bind(combo, wrapApply(callback));
         }
 
-        const hotkey = new Hotkey(combo, description, callback, action, allowIn, persistent);
+        var hotkey = new Hotkey(combo, description, callback, action, allowIn, persistent);
         scope.hotkeys.push(hotkey);
         return hotkey;
     }
@@ -217,44 +218,43 @@ function hotkeysProviderFactory($rootElement, $rootScope, $compile, $window, Hot
      * @param  {mixed} hotkey   Either the bound key or an instance of Hotkey
      * @return {boolean}        true if successful
      */
-    function _del (hotkey) {
-        const combo = (hotkey instanceof Hotkey) ? hotkey.combo : hotkey;
+    function _del(hotkey) {
+      var combo = (hotkey instanceof Hotkey) ? hotkey.combo : hotkey;
 
-        Mousetrap.unbind(combo);
+      Mousetrap.unbind(combo);
 
-        if (angular.isArray(combo)) {
-            let retStatus = true;
-            let i = combo.length;
-            while (i--) {
-                retStatus = _del(combo[i]) && retStatus;
-            }
-            return retStatus;
-        } else {
-            const index = scope.hotkeys.indexOf(_get(combo));
-
-            if (index > -1) {
-                // if the combo has other combos bound, don't unbind the whole thing, just the one combo:
-                if (scope.hotkeys[index].combo.length > 1) {
-                    scope.hotkeys[index].combo.splice(scope.hotkeys[index].combo.indexOf(combo), 1);
-                } else {
-
-                    // remove hotkey from bound scopes
-                    angular.forEach(boundScopes, function (boundScope) {
-                        const scopeIndex = boundScope.indexOf(scope.hotkeys[index]);
-
-                        if (scopeIndex !== -1) {
-                            boundScope.splice(scopeIndex, 1);
-                        }
-                    });
-
-                    scope.hotkeys.splice(index, 1);
-                }
-                return true;
-            }
+      if (angular.isArray(combo)) {
+        var retStatus = true;
+        var i = combo.length;
+        while (i--) {
+          retStatus = _del(combo[i]) && retStatus;
         }
+        return retStatus;
+      } else {
+        var index = scope.hotkeys.indexOf(_get(combo));
 
-        return false;
+        if (index > -1) {
+          // if the combo has other combos bound, don't unbind the whole thing, just the one combo:
+          if (scope.hotkeys[index].combo.length > 1) {
+            scope.hotkeys[index].combo.splice(scope.hotkeys[index].combo.indexOf(combo), 1);
+          } else {
 
+            // remove hotkey from bound scopes
+            angular.forEach(boundScopes, function (boundScope) {
+              var scopeIndex = boundScope.indexOf(scope.hotkeys[index]);
+
+              if (scopeIndex !== -1) {
+                boundScope.splice(scopeIndex, 1);
+              }
+            });
+
+            scope.hotkeys.splice(index, 1);
+          }
+          return true;
+        }
+      }
+
+      return false;
     }
 
     /**
@@ -263,23 +263,23 @@ function hotkeysProviderFactory($rootElement, $rootScope, $compile, $window, Hot
      * @param  {[string]} [combo]  the key the Hotkey is bound to. Returns all key bindings if no key is passed
      * @return {Hotkey}          The Hotkey object
      */
-    function _get (combo) {
+    function _get(combo) {
 
-        if (!combo) {
-            return scope.hotkeys;
+      if (!combo) {
+        return scope.hotkeys;
+      }
+
+      var hotkey;
+
+      for (var i = 0; i < scope.hotkeys.length; i++) {
+        hotkey = scope.hotkeys[i];
+
+        if (hotkey.combo.indexOf(combo) > -1) {
+          return hotkey;
         }
+      }
 
-        let hotkey;
-
-        for (let i = 0; i < scope.hotkeys.length; i++) {
-            hotkey = scope.hotkeys[i];
-
-            if (hotkey.combo.indexOf(combo) > -1) {
-                return hotkey;
-            }
-        }
-
-        return false;
+      return false;
     }
 
     /**
@@ -288,36 +288,36 @@ function hotkeysProviderFactory($rootElement, $rootScope, $compile, $window, Hot
      *
      * @param  {Object} scope The scope to bind to
      */
-    function bindTo (scope) {
-        // Only initialize once to allow multiple calls for same scope.
-        if (!(scope.$id in boundScopes)) {
+    function bindTo(scope) {
+      // Only initialize once to allow multiple calls for same scope.
+      if (!(scope.$id in boundScopes)) {
 
-            // Add the scope to the list of bound scopes
-            boundScopes[scope.$id] = [];
+          // Add the scope to the list of bound scopes
+          boundScopes[scope.$id] = [];
 
-            scope.$on('$destroy', function () {
-                let i = boundScopes[scope.$id].length;
-                while (i--) {
-                    _del(boundScopes[scope.$id].pop());
-                }
-            });
+          scope.$on('$destroy', function () {
+              var i = boundScopes[scope.$id].length;
+              while (i--) {
+                  _del(boundScopes[scope.$id].pop());
+              }
+          });
+      }
+      // return an object with an add function so we can keep track of the
+      // hotkeys and their scope that we added via this chaining method
+      return {
+        add: function (args) {
+          var hotkey;
+
+          if (arguments.length > 1) {
+              hotkey = _add.apply(this, arguments);
+          } else {
+              hotkey = _add(args);
+          }
+
+          boundScopes[scope.$id].push(hotkey);
+          return this;
         }
-        // return an object with an add function so we can keep track of the
-        // hotkeys and their scope that we added via this chaining method
-        return {
-            add: function (args) {
-                let hotkey;
-
-                if (arguments.length > 1) {
-                    hotkey = _add.apply(this, arguments);
-                } else {
-                    hotkey = _add(args);
-                }
-
-                boundScopes[scope.$id].push(hotkey);
-                return this;
-            }
-        };
+      };
     }
 
     /**
@@ -327,49 +327,52 @@ function hotkeysProviderFactory($rootElement, $rootScope, $compile, $window, Hot
      * @param  {Function} callback [description]
      * @return {[type]}            [description]
      */
-    function wrapApply (callback) {
-        // return mousetrap a function to call
-        return function (event, combo) {
+    function wrapApply(callback) {
+      // return mousetrap a function to call
+      return function (event, combo) {
 
-            // if this is an array, it means we provided a route object
-            // because the scope wasn't available yet, so rewrap the callback
-            // now that the scope is available:
-            if (callback instanceof Array) {
-                const funcString = callback[0];
-                const route = callback[1];
-                callback = function () {
-                    route.scope.$eval(funcString);
-                };
-            }
+        // if this is an array, it means we provided a route object
+        // because the scope wasn't available yet, so rewrap the callback
+        // now that the scope is available:
+        if (callback instanceof Array) {
+          var funcString = callback[0];
+          var route = callback[1];
+          callback = function () {
+            route.scope.$eval(funcString);
+          };
+        }
 
-            // this takes place outside angular, so we'll have to call
-            // $apply() to make sure angular's digest happens
-            $rootScope.$apply(function() {
-                // call the original hotkey callback with the keyboard event
-                callback(event, _get(combo));
-            });
-        };
+        // this takes place outside angular, so we'll have to call
+        // $apply() to make sure angular's digest happens
+        $rootScope.$apply(function() {
+          // call the original hotkey callback with the keyboard event
+          callback(event, _get(combo));
+        });
+      };
     }
 
-    const publicApi = {
-        init                  : init,
-        add                   : _add,
-        del                   : _del,
-        get                   : _get,
-        bindTo                : bindTo,
-        useNgRoute            : this.useNgRoute,
-        purgeHotkeys          : purgeHotkeys,
-        pause                 : pause,
-        unpause               : unpause
+    var publicApi = {
+      init                  : init,
+      add                   : _add,
+      del                   : _del,
+      get                   : _get,
+      bindTo                : bindTo,
+      useNgRoute            : config.useNgRoute,
+      purgeHotkeys          : purgeHotkeys,
+      pause                 : pause,
+      unpause               : unpause
     };
 
     return publicApi;
 
-}
+  }
 
-hotkeysProviderFactory.$inject = ['$rootElement', '$rootScope', '$compile', '$window', 'Hotkey']
+  hotkeysProviderFactory.$inject = ['$rootElement', '$rootScope', '$compile', '$window', 'HotKey'];
 
-angular.module('cfp.hotkeys').provider('hotkeys', ['$injector', ($injector) => ({
+  var config = {
     useNgRoute: $injector.has('ngViewDirective'),
     $get: hotkeysProviderFactory
-})])
+  };
+
+  return config;
+}]);

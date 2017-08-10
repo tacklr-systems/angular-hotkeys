@@ -2,3 +2,5 @@ node_modules/
 test/coverage
 bower_components/
 .coveralls.yml
+launch.json
+settings.json
