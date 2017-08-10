@@ -6,6 +6,7 @@ describe 'Angular Hotkeys', ->
   beforeEach ->
     module 'cfp.hotkeys', (hotkeysProvider) ->
       hotkeysProvider.useNgRoute = true
+      hotkeysProvider.useNgState = true
       return
 
     result = null
@@ -104,6 +105,21 @@ describe 'Angular Hotkeys', ->
 
     # ensure hotkey is unbound when the route changes
     $rootScope.$broadcast('$routeChangeSuccess', {});
+    expect(hotkeys.get('w e s')).toBe false
+
+  it 'should (un)bind based on state changes', ->
+    cfg =
+      combo: 'w e s'
+      callback: () -> 'null'
+
+    hotkeys.bindToState cfg, 'hotKeyState'
+    # fake a state change:
+    expect(hotkeys.get('w e s')).toBe false
+    $rootScope.$broadcast('$stateChangeSuccess', { name:'hotKeyState' } );
+    expect(hotkeys.get('w e s').combo).toEqual ['w e s']
+
+    # ensure hotkey is unbound when the state changes
+    $rootScope.$broadcast('$stateChangeSuccess', { name:'notHotKeyState' } );
     expect(hotkeys.get('w e s')).toBe false
 
   it 'should callback when the hotkey is pressed', ->
@@ -535,24 +551,24 @@ describe 'Platform specific things', ->
 describe 'Configuration options', ->
 
   it 'should disable the cheatsheet when configured', ->
-    module 'cfp.hotkeys', (hotkeysProvider) ->
-      hotkeysProvider.includeCheatSheet = false
+    module 'cfp.hotkeys', (hotkeysCheatSheetProvider) ->
+      hotkeysCheatSheetProvider.includeCheatSheet = false
       return
     inject ($rootElement, hotkeys) ->
       children = angular.element($rootElement).children()
       expect(children.length).toBe 0
 
   it 'should enable the cheatsheet when configured', ->
-    module 'cfp.hotkeys', (hotkeysProvider) ->
-      hotkeysProvider.includeCheatSheet = true
+    module 'cfp.hotkeys', (hotkeysCheatSheetProvider) ->
+      hotkeysCheatSheetProvider.includeCheatSheet = true
       return
     inject ($rootElement, hotkeys) ->
       children = angular.element($rootElement).children()
       expect(children.length).toBe 1
 
   it 'should accept an alternate template to inject', ->
-    module 'cfp.hotkeys', (hotkeysProvider) ->
-      hotkeysProvider.template = '<div class="little-teapot">boo</div>'
+    module 'cfp.hotkeys', (hotkeysCheatSheetProvider) ->
+      hotkeysCheatSheetProvider.template = '<div class="little-teapot">boo</div>'
       return
     inject ($rootElement, hotkeys) ->
       children = angular.element($rootElement).children()
@@ -576,9 +592,9 @@ describe 'Configuration options', ->
     expect(injected.hasClass('cfp-hotkeys-container')).toBe true
 
   it 'should have a configurable hotkey and description', ->
-    module 'cfp.hotkeys', (hotkeysProvider) ->
-      hotkeysProvider.cheatSheetHotkey = 'h'
-      hotkeysProvider.cheatSheetDescription = 'Alternate description'
+    module 'cfp.hotkeys', (hotkeysCheatSheetProvider) ->
+      hotkeysCheatSheetProvider.hotkey = 'h'
+      hotkeysCheatSheetProvider.description = 'Alternate description'
       return
 
     inject ($rootElement, hotkeys) ->

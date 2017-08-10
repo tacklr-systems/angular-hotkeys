@@ -19,7 +19,11 @@ module.exports = function(config) {
       '../bower_components/angular-route/angular-route.js',
       '../bower_components/mousetrap/mousetrap.js',
       '../bower_components/mousetrap/tests/libs/key-event.js',
-      '../src/*.js',
+      '../src/hotkeys.js',
+      '../src/hotkey.js',
+      '../src/hotkeys-provider.js',
+      '../src/hotkeys-cheat-sheet-provider.js',
+      '../src/hotkey-directive.js',
       '*.coffee'
     ],
 

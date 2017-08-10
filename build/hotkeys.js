@@ -1,83 +1,298 @@
 /*! 
  * angular-hotkeys v1.7.0
  * https://chieffancypants.github.io/angular-hotkeys
- * Copyright (c) 2016 Wes Cruver
+ * Copyright (c) 2017 Wes Cruver
  * License: MIT
  */
-/*
- * angular-hotkeys
- *
- * Automatic keyboard shortcuts for your angular apps
- *
- * (c) 2016 Wes Cruver
- * License: MIT
- */
-
 (function() {
 
   'use strict';
+  angular.module('cfp.hotkeys').directive('hotkey', ['hotkeys', function hotkeyDirective(hotkeys) {
+    return {
+      restrict: 'A',
+      link: function(scope, el, attrs) {
+        var keys = [];
 
-  angular.module('cfp.hotkeys', []).provider('hotkeys', ['$injector', function($injector) {
+        angular.forEach(scope.$eval(attrs.hotkey), function(func, hotkey) {
+          // split and trim the hotkeys string into array
+          var allowIn = typeof attrs.hotkeyAllowIn === "string" ? attrs.hotkeyAllowIn.split(/[\s,]+/) : [];
+
+          keys.push(hotkey);
+
+          hotkeys.add({
+            combo: hotkey,
+            description: attrs.hotkeyDescription,
+            callback: func,
+            action: attrs.hotkeyAction,
+            allowIn: allowIn
+          });
+        });
+
+        // remove the hotkey if the directive is destroyed:
+        el.bind('$destroy', function() {
+          angular.forEach(keys, hotkeys.del);
+        });
+      }
+    };
+  }]);
+})();
+(function() {
+
+  'use strict';
+  angular.module('cfp.hotkeys').service('HotKey', ['$window', function hotkeyFactory($window) {
+    /**
+     * Convert strings like cmd into symbols like ⌘
+     * @param  {String} combo Key combination, e.g. 'mod+f'
+     * @return {String}       The key combination with symbols
+     */
+    function symbolize (combo) {
+      var map = {
+        command   : '\u2318',     // ⌘
+        shift     : '\u21E7',     // ⇧
+        left      : '\u2190',     // ←
+        right     : '\u2192',     // →
+        up        : '\u2191',     // ↑
+        down      : '\u2193',     // ↓
+        'return'  : '\u23CE',     // ⏎
+        backspace : '\u232B'      // ⌫
+      };
+
+      return combo.split('+').map(function(value) {
+        var symbol = value;
+
+        if (value === 'mod') {
+
+          if ($window.navigator && $window.navigator.platform.indexOf('Mac') >=0 ) {
+            symbol = 'command';
+          } else {
+            symbol = 'ctrl';
+          }
+        }
+
+        return map[symbol] || symbol;
+      }).join(' + ');
+    }
 
     /**
-     * Configurable setting to disable the cheatsheet entirely
-     * @type {Boolean}
+     * Hotkey object used internally for consistency
+     *
+     * @param {array}    combo       The keycombo. it's an array to support multiple combos
+     * @param {String}   description Description for the keycombo
+     * @param {Function} callback    function to execute when keycombo pressed
+     * @param {string}   action      the type of event to listen for (for mousetrap)
+     * @param {array}    allowIn     an array of tag names to allow this combo in ('INPUT', 'SELECT', and/or 'TEXTAREA')
+     * @param {Boolean}  persistent  Whether the hotkey persists navigation events
      */
-    this.includeCheatSheet = true;
+    function Hotkey (combo, description, callback, action, allowIn, persistent) {
+      // TODO: Check that the values are sane because we could
+      // be trying to instantiate a new Hotkey with outside dev's
+      // supplied values
+
+      this.combo = combo instanceof Array ? combo : [combo];
+      this.description = description;
+      this.callback = callback;
+      this.action = action;
+      this.allowIn = allowIn;
+      this.persistent = persistent;
+      this._formated = null;
+    }
 
     /**
-     * Configurable setting to disable ngRoute hooks
-     * @type {Boolean}
+     * Helper method to format (symbolize) the key combo for display
+     *
+     * @return {[Array]} An array of the key combination sequence
+     *   for example: "command+g c i" becomes ["⌘ + g", "c", "i"]
+     *
      */
-    this.useNgRoute = $injector.has('ngViewDirective');
+    Hotkey.prototype.format = function() {
+      if (this._formated === null) {
+          // Don't show all the possible key combos, just the first one.  Not sure
+          // of usecase here, so open a ticket if my assumptions are wrong
+          var combo = this.combo[0];
 
-    /**
-     * Configurable setting for the cheat sheet title
-     * @type {String}
-     */
+          var sequence = combo.split(/[\s]/);
+          for (var i = 0; i < sequence.length; i++) {
+              sequence[i] = symbolize(sequence[i]);
+          }
+          this._formated = sequence;
+      }
 
-    this.templateTitle = 'Keyboard Shortcuts:';
+      return this._formated;
+    };
 
-    /**
-     * Configurable settings for the cheat sheet header and footer.  Both are HTML, and the header
-     * overrides the normal title if specified.
-     * @type {String}
-     */
-    this.templateHeader = null;
-    this.templateFooter = null;
+    return Hotkey;
+  }]);
+})();
+(function() {
 
-    /**
-     * Cheat sheet template in the event you want to totally customize it.
-     * @type {String}
-     */
-    this.template = '<div class="cfp-hotkeys-container fade" ng-class="{in: helpVisible}" style="display: none;"><div class="cfp-hotkeys">' +
-                      '<h4 class="cfp-hotkeys-title" ng-if="!header">{{ title }}</h4>' +
-                      '<div ng-bind-html="header" ng-if="header"></div>' +
-                      '<table><tbody>' +
-                        '<tr ng-repeat="hotkey in hotkeys | filter:{ description: \'!$$undefined$$\' }">' +
-                          '<td class="cfp-hotkeys-keys">' +
-                            '<span ng-repeat="key in hotkey.format() track by $index" class="cfp-hotkeys-key">{{ key }}</span>' +
-                          '</td>' +
-                          '<td class="cfp-hotkeys-text">{{ hotkey.description }}</td>' +
-                        '</tr>' +
-                      '</tbody></table>' +
-                      '<div ng-bind-html="footer" ng-if="footer"></div>' +
-                      '<div class="cfp-hotkeys-close" ng-click="toggleCheatSheet()">&#215;</div>' +
-                    '</div></div>';
+  'use strict';
+  angular.module('cfp.hotkeys').provider('hotkeysCheatSheet', function() {
+    function hotkeysCheatSheetProviderFactory($rootElement, $rootScope, $compile, $window, $document, hotkeys) {
 
-    /**
-     * Configurable setting for the cheat sheet hotkey
-     * @type {String}
-     */
-    this.cheatSheetHotkey = '?';
+      var scope = null,
+        previousEsc = false,
+        initialized = false;
 
-    /**
-     * Configurable setting for the cheat sheet description
-     * @type {String}
-     */
-    this.cheatSheetDescription = 'Show / hide this help menu';
+      function toggleCheatSheet() {
+        scope.helpVisible = !scope.helpVisible;
 
-    this.$get = ['$rootElement', '$rootScope', '$compile', '$window', '$document', function ($rootElement, $rootScope, $compile, $window, $document) {
+        // Bind to esc to remove the cheat sheet.  Ideally, this would be done
+        // as a directive in the template, but that would create a nasty
+        // circular dependency issue that I don't feel like sorting out.
+        if (scope.helpVisible) {
+          previousEsc = hotkeys.get('esc');
+          hotkeys.del('esc');
+
+          // Here's an odd way to do this: we're going to use the original
+          // description of the hotkey on the cheat sheet so that it shows up.
+          // without it, no entry for esc will ever show up (#22)
+          hotkeys.add('esc', previousEsc.description, toggleCheatSheet, null, ['INPUT', 'SELECT', 'TEXTAREA']);
+        } else {
+          hotkeys.del('esc');
+
+          // restore the previously bound ESC key
+          if (previousEsc !== false) {
+            hotkeys.add(previousEsc);
+          }
+        }
+      }
+
+      return {
+        init: function() {
+          if (!initialized) {
+
+            initialized = true;
+            /**
+            * A new scope used internally for the cheatsheet
+            * @type {$rootScope.Scope}
+            */
+            scope = $rootScope.$new();
+
+            /**
+            * Contains the state of the help's visibility
+            * @type {Boolean}
+            */
+            scope.helpVisible = false;
+
+            /**
+             * Holds the title string for the help menu
+             * @type {String}
+             */
+            scope.title = config.templateTitle;
+
+            /**
+             * Holds the header HTML for the help menu
+             * @type {String}
+             */
+            scope.header = config.templateHeader;
+
+            /**
+             * Holds the footer HTML for the help menu
+             * @type {String}
+             */
+            scope.footer = config.templateFooter;
+
+            /**
+             * Expose toggleCheatSheet to hotkeys scope so we can call it using
+             * ng-click from the template
+             * @type {function}
+             */
+            scope.toggleCheatSheet = toggleCheatSheet;
+
+            // Auto-create a help menu:
+            if (config.includeCheatSheet) {
+
+              var document = $document[0];
+              var element = $rootElement[0];
+              hotkeys.add(config.hotkey, config.description, toggleCheatSheet);
+
+              // If $rootElement is document or documentElement, then body must be used
+              if (element === document || element === document.documentElement) {
+                  element = document.body;
+              }
+
+              var helpMenu = angular.element(this.template);
+
+              angular.element(element).append($compile(helpMenu)(scope));
+            }
+          }
+        },
+        toggleCheatSheet      : toggleCheatSheet,
+        template              : config.template,
+        includeCheatSheet     : config.includeCheatSheet,
+        hotkey                : config.hotkey,
+        description           : config.description,
+        templateTitle         : config.templateTitle
+
+      };
+    }
+
+    hotkeysCheatSheetProviderFactory.$inject = ['$rootElement', '$rootScope', '$compile', '$window', '$document', 'hotkeys'];
+
+    var cheatSheetTemplate =
+      '<div class="cfp-hotkeys-container fade" ng-class="{in: helpVisible}" style="display: none;"><div class="cfp-hotkeys">' +
+        '<h4 class="cfp-hotkeys-title" ng-if="!header">{{ title }}</h4>' +
+        '<div ng-bind-html="header" ng-if="header"></div>' +
+        '<table><tbody>' +
+          '<tr ng-repeat="hotkey in hotkeys | filter:{ description: \'!$$undefined$$\' }">' +
+              '<td class="cfp-hotkeys-keys">' +
+              '<span ng-repeat="key in hotkey.format() track by $index" class="cfp-hotkeys-key">{{ key }}</span>' +
+              '</td>' +
+              '<td class="cfp-hotkeys-text">{{ hotkey.description }}</td>' +
+          '</tr>' +
+        '</tbody></table>' +
+        '<div ng-bind-html="footer" ng-if="footer"></div>' +
+        '<div class="cfp-hotkeys-close" ng-click="toggleCheatSheet()">&#215;</div>' +
+      '</div></div>';
+
+    var config = {
+      /**
+       * Configurable setting to disable the cheatsheet entirely
+       * @type {Boolean}
+       */
+      includeCheatSheet: true,
+
+      /**
+       * Configurable setting for the cheat sheet title
+       * @type {String}
+       */
+      templateTitle: 'Keyboard Shortcuts:',
+
+      /**
+       * Configurable settings for the cheat sheet header and footer.  Both are HTML, and the header
+       * overrides the normal title if specified.
+       * @type {String}
+       */
+      templateHeader: null,
+      templateFooter: null,
+
+      /**
+       * Cheat sheet template in the event you want to totally customize it.
+       * @type {String}
+       */
+      template: cheatSheetTemplate,
+      /**
+       * Configurable setting for the cheat sheet hotkey
+       * @type {String}
+       */
+      hotkey: '?',
+      /**
+       * Configurable setting for the cheat sheet description
+       * @type {String}
+       */
+      description: 'Show / hide this help menu',
+      $get: hotkeysCheatSheetProviderFactory
+    };
+
+    return config;
+  });
+})();
+(function() {
+
+  'use strict';
+  angular.module('cfp.hotkeys').provider('hotkeys', ['$injector', function($injector) {
+    function hotkeysProviderFactory($rootElement, $rootScope, $compile, $window, Hotkey) {
+      var initialized = false;
 
       var mouseTrapEnabled = true;
 
@@ -102,133 +317,10 @@
           return false;
         }
 
-        return (element.contentEditable && element.contentEditable == 'true');
+        return (element.contentEditable && element.contentEditable === 'true');
       };
 
-      /**
-       * Convert strings like cmd into symbols like ⌘
-       * @param  {String} combo Key combination, e.g. 'mod+f'
-       * @return {String}       The key combination with symbols
-       */
-      function symbolize (combo) {
-        var map = {
-          command   : '\u2318',     // ⌘
-          shift     : '\u21E7',     // ⇧
-          left      : '\u2190',     // ←
-          right     : '\u2192',     // →
-          up        : '\u2191',     // ↑
-          down      : '\u2193',     // ↓
-          'return'  : '\u23CE',     // ⏎
-          backspace : '\u232B'      // ⌫
-        };
-        combo = combo.split('+');
-
-        for (var i = 0; i < combo.length; i++) {
-          // try to resolve command / ctrl based on OS:
-          if (combo[i] === 'mod') {
-            if ($window.navigator && $window.navigator.platform.indexOf('Mac') >=0 ) {
-              combo[i] = 'command';
-            } else {
-              combo[i] = 'ctrl';
-            }
-          }
-
-          combo[i] = map[combo[i]] || combo[i];
-        }
-
-        return combo.join(' + ');
-      }
-
-      /**
-       * Hotkey object used internally for consistency
-       *
-       * @param {array}    combo       The keycombo. it's an array to support multiple combos
-       * @param {String}   description Description for the keycombo
-       * @param {Function} callback    function to execute when keycombo pressed
-       * @param {string}   action      the type of event to listen for (for mousetrap)
-       * @param {array}    allowIn     an array of tag names to allow this combo in ('INPUT', 'SELECT', and/or 'TEXTAREA')
-       * @param {Boolean}  persistent  Whether the hotkey persists navigation events
-       */
-      function Hotkey (combo, description, callback, action, allowIn, persistent) {
-        // TODO: Check that the values are sane because we could
-        // be trying to instantiate a new Hotkey with outside dev's
-        // supplied values
-
-        this.combo = combo instanceof Array ? combo : [combo];
-        this.description = description;
-        this.callback = callback;
-        this.action = action;
-        this.allowIn = allowIn;
-        this.persistent = persistent;
-        this._formated = null;
-      }
-
-      /**
-       * Helper method to format (symbolize) the key combo for display
-       *
-       * @return {[Array]} An array of the key combination sequence
-       *   for example: "command+g c i" becomes ["⌘ + g", "c", "i"]
-       *
-       */
-      Hotkey.prototype.format = function() {
-        if (this._formated === null) {
-          // Don't show all the possible key combos, just the first one.  Not sure
-          // of usecase here, so open a ticket if my assumptions are wrong
-          var combo = this.combo[0];
-
-          var sequence = combo.split(/[\s]/);
-          for (var i = 0; i < sequence.length; i++) {
-            sequence[i] = symbolize(sequence[i]);
-          }
-          this._formated = sequence;
-        }
-
-        return this._formated;
-      };
-
-      /**
-       * A new scope used internally for the cheatsheet
-       * @type {$rootScope.Scope}
-       */
-      var scope = $rootScope.$new();
-
-      /**
-       * Holds an array of Hotkey objects currently bound
-       * @type {Array}
-       */
-      scope.hotkeys = [];
-
-      /**
-       * Contains the state of the help's visibility
-       * @type {Boolean}
-       */
-      scope.helpVisible = false;
-
-      /**
-       * Holds the title string for the help menu
-       * @type {String}
-       */
-      scope.title = this.templateTitle;
-
-      /**
-       * Holds the header HTML for the help menu
-       * @type {String}
-       */
-      scope.header = this.templateHeader;
-
-      /**
-       * Holds the footer HTML for the help menu
-       * @type {String}
-       */
-      scope.footer = this.templateFooter;
-
-      /**
-       * Expose toggleCheatSheet to hotkeys scope so we can call it using
-       * ng-click from the template
-       * @type {function}
-       */
-      scope.toggleCheatSheet = toggleCheatSheet;
-
+      var scope = {};
 
       /**
        * Holds references to the different scopes that have bound hotkeys
@@ -239,46 +331,64 @@
        */
       var boundScopes = {};
 
-      if (this.useNgRoute) {
-        $rootScope.$on('$routeChangeSuccess', function (event, route) {
-          purgeHotkeys();
+      var boundStates = {};
 
-          if (route && route.hotkeys) {
-            angular.forEach(route.hotkeys, function (hotkey) {
-              // a string was given, which implies this is a function that is to be
-              // $eval()'d within that controller's scope
-              // TODO: hotkey here is super confusing.  sometimes a function (that gets turned into an array), sometimes a string
-              var callback = hotkey[2];
-              if (typeof(callback) === 'string' || callback instanceof String) {
-                hotkey[2] = [callback, route];
+      function init() {
+        if (!initialized) {
+
+          initialized = true;
+          /**
+          * A new scope used internally for the cheatsheet
+          * @type {$rootScope.Scope}
+          */
+          scope = $rootScope.$new();
+
+          /**
+          * Holds an array of Hotkey objects currently bound
+          * @type {Array}
+          */
+          scope.hotkeys = [];
+
+          boundScopes = {};
+
+          if (config.useNgRoute) {
+            $rootScope.$on('$routeChangeSuccess', function (event, route) {
+              purgeHotkeys();
+
+              if (route && route.hotkeys) {
+                angular.forEach(route.hotkeys, function (hotkey) {
+                  // a string was given, which implies this is a function that is to be
+                  // $eval()'d within that controller's scope
+                  // TODO: hotkey here is super confusing.  sometimes a function (that gets turned into an array), sometimes a string
+                  var callback = hotkey[2];
+                  if (typeof(callback) === 'string' || callback instanceof String) {
+                    hotkey[2] = [callback, route];
+                  }
+
+                  // todo: perform check to make sure not already defined:
+                  // this came from a route, so it's likely not meant to be persistent
+                  hotkey[5] = false;
+                  _add.apply(this, hotkey);
+                });
               }
-
-              // todo: perform check to make sure not already defined:
-              // this came from a route, so it's likely not meant to be persistent
-              hotkey[5] = false;
-              _add.apply(this, hotkey);
             });
           }
-        });
-      }
 
+          if (config.useNgState) {
+            $rootScope.$on('$stateChangeSuccess', function (event, toState) {
+              purgeHotkeys();
+              if (boundStates && boundStates[toState.name]) {
 
+                angular.forEach(boundStates[toState.name], function (cfg) {
+                  cfg.persistent = false;
+                  _add(cfg);
+                });
+              }
+            });
+          }
 
-      // Auto-create a help menu:
-      if (this.includeCheatSheet) {
-        var document = $document[0];
-        var element = $rootElement[0];
-        var helpMenu = angular.element(this.template);
-        _add(this.cheatSheetHotkey, this.cheatSheetDescription, toggleCheatSheet);
-
-        // If $rootElement is document or documentElement, then body must be used
-        if (element === document || element === document.documentElement) {
-          element = document.body;
         }
-
-        angular.element(element).append($compile(helpMenu)(scope));
       }
-
 
       /**
        * Purges all non-persistent hotkeys (such as those defined in routes)
@@ -297,35 +407,6 @@
       }
 
       /**
-       * Toggles the help menu element's visiblity
-       */
-      var previousEsc = false;
-
-      function toggleCheatSheet() {
-        scope.helpVisible = !scope.helpVisible;
-
-        // Bind to esc to remove the cheat sheet.  Ideally, this would be done
-        // as a directive in the template, but that would create a nasty
-        // circular dependency issue that I don't feel like sorting out.
-        if (scope.helpVisible) {
-          previousEsc = _get('esc');
-          _del('esc');
-
-          // Here's an odd way to do this: we're going to use the original
-          // description of the hotkey on the cheat sheet so that it shows up.
-          // without it, no entry for esc will ever show up (#22)
-          _add('esc', previousEsc.description, toggleCheatSheet, null, ['INPUT', 'SELECT', 'TEXTAREA']);
-        } else {
-          _del('esc');
-
-          // restore the previously bound ESC key
-          if (previousEsc !== false) {
-            _add(previousEsc);
-          }
-        }
-      }
-
-      /**
        * Creates a new Hotkey and creates the Mousetrap binding
        *
        * @param {string}   combo       mousetrap key binding
@@ -335,107 +416,107 @@
        * @param {array}    allowIn     an array of tag names to allow this combo in ('INPUT', 'SELECT', and/or 'TEXTAREA')
        * @param {boolean}  persistent  if true, the binding is preserved upon route changes
        */
-      function _add (combo, description, callback, action, allowIn, persistent) {
+      function _add(combo, description, callback, action, allowIn, persistent) {
 
-        // used to save original callback for "allowIn" wrapping:
-        var _callback;
+          // used to save original callback for "allowIn" wrapping:
+          var _callback;
 
-        // these elements are prevented by the default Mousetrap.stopCallback():
-        var preventIn = ['INPUT', 'SELECT', 'TEXTAREA'];
+          // these elements are prevented by the default Mousetrap.stopCallback():
+          var preventIn = ['INPUT', 'SELECT', 'TEXTAREA'];
 
-        // Determine if object format was given:
-        var objType = Object.prototype.toString.call(combo);
+          // Determine if object format was given:
+          var objType = Object.prototype.toString.call(combo);
 
-        if (objType === '[object Object]') {
-          description = combo.description;
-          callback    = combo.callback;
-          action      = combo.action;
-          persistent  = combo.persistent;
-          allowIn     = combo.allowIn;
-          combo       = combo.combo;
-        }
-
-        // no duplicates please
-        _del(combo);
-
-        // description is optional:
-        if (description instanceof Function) {
-          action = callback;
-          callback = description;
-          description = '$$undefined$$';
-        } else if (angular.isUndefined(description)) {
-          description = '$$undefined$$';
-        }
-
-        // any items added through the public API are for controllers
-        // that persist through navigation, and thus undefined should mean
-        // true in this case.
-        if (persistent === undefined) {
-          persistent = true;
-        }
-        // if callback is defined, then wrap it in a function
-        // that checks if the event originated from a form element.
-        // the function blocks the callback from executing unless the element is specified
-        // in allowIn (emulates Mousetrap.stopCallback() on a per-key level)
-        if (typeof callback === 'function') {
-
-          // save the original callback
-          _callback = callback;
-
-          // make sure allowIn is an array
-          if (!(allowIn instanceof Array)) {
-            allowIn = [];
+          if (objType === '[object Object]') {
+            description = combo.description;
+            callback    = combo.callback;
+            action      = combo.action;
+            persistent  = combo.persistent;
+            allowIn     = combo.allowIn;
+            combo       = combo.combo;
           }
 
-          // remove anything from preventIn that's present in allowIn
-          var index;
-          for (var i=0; i < allowIn.length; i++) {
-            allowIn[i] = allowIn[i].toUpperCase();
-            index = preventIn.indexOf(allowIn[i]);
-            if (index !== -1) {
-              preventIn.splice(index, 1);
+          // no duplicates please
+          _del(combo);
+
+          // description is optional:
+          if (description instanceof Function) {
+            action = callback;
+            callback = description;
+            description = '$$undefined$$';
+          } else if (angular.isUndefined(description)) {
+            description = '$$undefined$$';
+          }
+
+          // any items added through the public API are for controllers
+          // that persist through navigation, and thus undefined should mean
+          // true in this case.
+          if (persistent === undefined) {
+            persistent = true;
+          }
+          // if callback is defined, then wrap it in a function
+          // that checks if the event originated from a form element.
+          // the function blocks the callback from executing unless the element is specified
+          // in allowIn (emulates Mousetrap.stopCallback() on a per-key level)
+          if (typeof callback === 'function') {
+
+            // save the original callback
+            _callback = callback;
+
+            // make sure allowIn is an array
+            if (!(allowIn instanceof Array)) {
+              allowIn = [];
             }
-          }
 
-          // create the new wrapper callback
-          callback = function(event) {
-            var shouldExecute = true;
+            // remove anything from preventIn that's present in allowIn
+            var index;
+            for (var i=0; i < allowIn.length; i++) {
+                allowIn[i] = allowIn[i].toUpperCase();
+                index = preventIn.indexOf(allowIn[i]);
+                if (index !== -1) {
+                    preventIn.splice(index, 1);
+                }
+            }
 
-            // if the callback is executed directly `hotkey.get('w').callback()`
-            // there will be no event, so just execute the callback.
-            if (event) {
-              var target = event.target || event.srcElement; // srcElement is IE only
-              var nodeName = target.nodeName.toUpperCase();
+            // create the new wrapper callback
+            callback = function(event) {
+              var shouldExecute = true;
 
-              // check if the input has a mousetrap class, and skip checking preventIn if so
-              if ((' ' + target.className + ' ').indexOf(' mousetrap ') > -1) {
-                shouldExecute = true;
-              } else {
-                // don't execute callback if the event was fired from inside an element listed in preventIn
-                for (var i=0; i<preventIn.length; i++) {
-                  if (preventIn[i] === nodeName) {
-                    shouldExecute = false;
-                    break;
+              // if the callback is executed directly `hotkey.get('w').callback()`
+              // there will be no event, so just execute the callback.
+              if (event) {
+                var target = event.target || event.srcElement; // srcElement is IE only
+                var nodeName = target.nodeName.toUpperCase();
+
+                // check if the input has a mousetrap class, and skip checking preventIn if so
+                if ((' ' + target.className + ' ').indexOf(' mousetrap ') > -1) {
+                  shouldExecute = true;
+                } else {
+                  // don't execute callback if the event was fired from inside an element listed in preventIn
+                  for (var i=0; i<preventIn.length; i++) {
+                    if (preventIn[i] === nodeName) {
+                      shouldExecute = false;
+                      break;
+                    }
                   }
                 }
               }
-            }
 
-            if (shouldExecute) {
-              wrapApply(_callback.apply(this, arguments));
-            }
-          };
-        }
+              if (shouldExecute) {
+                wrapApply(_callback.apply(this, arguments));
+              }
+            };
+          }
 
-        if (typeof(action) === 'string') {
-          Mousetrap.bind(combo, wrapApply(callback), action);
-        } else {
-          Mousetrap.bind(combo, wrapApply(callback));
-        }
+          if (typeof(action) === 'string') {
+            Mousetrap.bind(combo, wrapApply(callback), action);
+          } else {
+            Mousetrap.bind(combo, wrapApply(callback));
+          }
 
-        var hotkey = new Hotkey(combo, description, callback, action, allowIn, persistent);
-        scope.hotkeys.push(hotkey);
-        return hotkey;
+          var hotkey = new Hotkey(combo, description, callback, action, allowIn, persistent);
+          scope.hotkeys.push(hotkey);
+          return hotkey;
       }
 
       /**
@@ -444,7 +525,7 @@
        * @param  {mixed} hotkey   Either the bound key or an instance of Hotkey
        * @return {boolean}        true if successful
        */
-      function _del (hotkey) {
+      function _del(hotkey) {
         var combo = (hotkey instanceof Hotkey) ? hotkey.combo : hotkey;
 
         Mousetrap.unbind(combo);
@@ -468,8 +549,9 @@
               // remove hotkey from bound scopes
               angular.forEach(boundScopes, function (boundScope) {
                 var scopeIndex = boundScope.indexOf(scope.hotkeys[index]);
+
                 if (scopeIndex !== -1) {
-                    boundScope.splice(scopeIndex, 1);
+                  boundScope.splice(scopeIndex, 1);
                 }
               });
 
@@ -480,7 +562,6 @@
         }
 
         return false;
-
       }
 
       /**
@@ -489,7 +570,7 @@
        * @param  {[string]} [combo]  the key the Hotkey is bound to. Returns all key bindings if no key is passed
        * @return {Hotkey}          The Hotkey object
        */
-      function _get (combo) {
+      function _get(combo) {
 
         if (!combo) {
           return scope.hotkeys;
@@ -514,7 +595,7 @@
        *
        * @param  {Object} scope The scope to bind to
        */
-      function bindTo (scope) {
+      function bindTo(scope) {
         // Only initialize once to allow multiple calls for same scope.
         if (!(scope.$id in boundScopes)) {
 
@@ -535,15 +616,27 @@
             var hotkey;
 
             if (arguments.length > 1) {
-              hotkey = _add.apply(this, arguments);
+                hotkey = _add.apply(this, arguments);
             } else {
-              hotkey = _add(args);
+                hotkey = _add(args);
             }
 
             boundScopes[scope.$id].push(hotkey);
             return this;
           }
         };
+      }
+
+      function bindToState(cfg, states) {
+        var wrap = (states instanceof Array) ? states : [states];
+
+        wrap.forEach(function(state) {
+          if (!boundStates[state]) {
+            boundStates[state] = [];
+          }
+          boundStates[state].push(cfg);
+        });
+
       }
 
       /**
@@ -553,7 +646,7 @@
        * @param  {Function} callback [description]
        * @return {[type]}            [description]
        */
-      function wrapApply (callback) {
+      function wrapApply(callback) {
         // return mousetrap a function to call
         return function (event, combo) {
 
@@ -563,7 +656,7 @@
           if (callback instanceof Array) {
             var funcString = callback[0];
             var route = callback[1];
-            callback = function (event) {
+            callback = function () {
               route.scope.$eval(funcString);
             };
           }
@@ -578,63 +671,55 @@
       }
 
       var publicApi = {
+        init                  : init,
         add                   : _add,
         del                   : _del,
         get                   : _get,
         bindTo                : bindTo,
-        template              : this.template,
-        toggleCheatSheet      : toggleCheatSheet,
-        includeCheatSheet     : this.includeCheatSheet,
-        cheatSheetHotkey      : this.cheatSheetHotkey,
-        cheatSheetDescription : this.cheatSheetDescription,
-        useNgRoute            : this.useNgRoute,
+        bindToState           : bindToState,
+        useNgRoute            : config.useNgRoute,
+        usNgState             : config.useNgState,
         purgeHotkeys          : purgeHotkeys,
-        templateTitle         : this.templateTitle,
         pause                 : pause,
         unpause               : unpause
       };
 
       return publicApi;
 
-    }];
+    }
 
+    hotkeysProviderFactory.$inject = ['$rootElement', '$rootScope', '$compile', '$window', 'HotKey'];
 
-  }])
-
-  .directive('hotkey', ['hotkeys', function (hotkeys) {
-    return {
-      restrict: 'A',
-      link: function (scope, el, attrs) {
-        var keys = [],
-            allowIn;
-
-        angular.forEach(scope.$eval(attrs.hotkey), function (func, hotkey) {
-          // split and trim the hotkeys string into array
-          allowIn = typeof attrs.hotkeyAllowIn === "string" ? attrs.hotkeyAllowIn.split(/[\s,]+/) : [];
-
-          keys.push(hotkey);
-
-          hotkeys.add({
-            combo: hotkey,
-            description: attrs.hotkeyDescription,
-            callback: func,
-            action: attrs.hotkeyAction,
-            allowIn: allowIn
-          });
-        });
-
-        // remove the hotkey if the directive is destroyed:
-        el.bind('$destroy', function() {
-          angular.forEach(keys, hotkeys.del);
-        });
-      }
+    var config = {
+      useNgRoute: $injector.has('ngViewDirective'),
+      useNgState: false,
+      $get: hotkeysProviderFactory
     };
-  }])
 
-  .run(['hotkeys', function(hotkeys) {
-    // force hotkeys to run by injecting it. Without this, hotkeys only runs
-    // when a controller or something else asks for it via DI.
+    return config;
   }]);
+
+})();
+/*
+ * angular-hotkeys
+ *
+ * Automatic keyboard shortcuts for your angular apps
+ *
+ * (c) 2016 Wes Cruver
+ * License: MIT
+ */
+
+(function() {
+
+  'use strict';
+
+  angular.module('cfp.hotkeys', [])
+    .run(['hotkeys', 'hotkeysCheatSheet', function(hotkeys, hotkeysCheatSheet) {
+      // force hotkeys to run by injecting it. Without this, hotkeys only runs
+      // when a controller or something else asks for it via DI.
+      hotkeys.init();
+      hotkeysCheatSheet.init();
+    }]);
 
 })();
 
@@ -1050,7 +1135,7 @@
     }
 
     function _belongsTo(element, ancestor) {
-        if (element === document) {
+        if (element === null || element === document) {
             return false;
         }
 
