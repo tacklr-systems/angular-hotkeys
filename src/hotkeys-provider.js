@@ -381,11 +381,16 @@
         };
       }
 
+      function _all() {
+        return scope.hotkeys;
+      }
+
       var publicApi = {
         init                  : init,
         add                   : _add,
         del                   : _del,
         get                   : _get,
+        all                   : _all,
         bindTo                : bindTo,
         bindToState           : bindToState,
         useNgRoute            : config.useNgRoute,

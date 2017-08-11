@@ -10,7 +10,7 @@
 
       function toggleCheatSheet() {
         scope.helpVisible = !scope.helpVisible;
-
+        scope.hotkeys = hotkeys.all();
         // Bind to esc to remove the cheat sheet.  Ideally, this would be done
         // as a directive in the template, but that would create a nasty
         // circular dependency issue that I don't feel like sorting out.

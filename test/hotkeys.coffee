@@ -533,8 +533,10 @@ describe 'Platform specific things', ->
       return
 
     inject (hotkeys) ->
-      hotkeys.add 'mod+e', 'description'
-      expect(hotkeys.get('mod+e').format()[0]).toBe '⌘ + e'
+      hotkeys.add 'ctrl+e', 'description'
+      hotkeys.add 'alt+e', 'description 2'
+      expect(hotkeys.get('ctrl+e').format()[0]).toBe '⌘ + e'
+      expect(hotkeys.get('alt+e').format()[0]).toBe '⌥ + e'
 
   it 'should display win/linux key combos', ->
     module ($provide) ->
