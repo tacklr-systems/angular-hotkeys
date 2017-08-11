@@ -105,7 +105,7 @@
     hotkeysCheatSheetProviderFactory.$inject = ['$rootElement', '$rootScope', '$compile', '$window', '$document', 'hotkeys'];
 
     var cheatSheetTemplate =
-      '<div class="cfp-hotkeys-container fade" ng-class="{in: helpVisible}" style="display: none;"><div class="cfp-hotkeys">' +
+      '<div class="cfp-hotkeys-container fade" ng-class="{in: helpVisible}"><div class="cfp-hotkeys">' +
         '<h4 class="cfp-hotkeys-title" ng-if="!header">{{ title }}</h4>' +
         '<div ng-bind-html="header" ng-if="header"></div>' +
         '<table><tbody>' +

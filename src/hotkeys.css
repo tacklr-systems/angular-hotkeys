@@ -1,5 +1,5 @@
 .cfp-hotkeys-container {
-  display: table !important;
+  display: none;
   position: fixed;
   width: 100%;
   height: 100%;
@@ -21,6 +21,7 @@
 }
 
 .cfp-hotkeys-container.fade.in {
+  display: table;
   z-index: 10002;
   visibility: visible;
   opacity: 1;
