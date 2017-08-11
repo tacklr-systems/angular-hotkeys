@@ -79,7 +79,14 @@ module.exports = function(grunt) {
         },
         files: {
           'build/hotkeys.css': 'src/hotkeys.css',
-          'build/hotkeys.js':  ['tmp/*.js', 'bower_components/mousetrap/mousetrap.js'],
+          'build/hotkeys.js':  [
+            'tmp/hotkeys.js',
+            'tmp/hotkey.js',
+            'tmp/hotkeys-provider.js',
+            'tmp/hotkeys-cheat-sheet-provider.js',
+            'tmp/hotkey-directive.js',
+            'bower_components/mousetrap/mousetrap.js'
+          ],
         }
       }
     },

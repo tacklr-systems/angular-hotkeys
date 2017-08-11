@@ -16,19 +16,22 @@
         up        : '\u2191',     // ↑
         down      : '\u2193',     // ↓
         'return'  : '\u23CE',     // ⏎
-        backspace : '\u232B'      // ⌫
+        backspace : '\u232B',     // ⌫
+        option    : '\u2325'      // ⌥
       };
 
       return combo.split('+').map(function(value) {
         var symbol = value;
 
-        if (value === 'mod') {
+        if (value === 'mod' || value === 'command' || value === 'ctrl') {
 
           if ($window.navigator && $window.navigator.platform.indexOf('Mac') >=0 ) {
             symbol = 'command';
           } else {
             symbol = 'ctrl';
           }
+        } else if (value === 'alt' && ($window.navigator && $window.navigator.platform.indexOf('Mac') >=0 )) {
+          symbol = 'option';
         }
 
         return map[symbol] || symbol;
