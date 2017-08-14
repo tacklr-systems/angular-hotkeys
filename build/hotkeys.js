@@ -30,7 +30,9 @@
 (function() {
 
   'use strict';
-  angular.module('cfp.hotkeys').service('HotKey', ['$window', function hotkeyFactory($window) {
+  angular.module('cfp.hotkeys').provider('HotKey', function() {
+
+  function hotkeyFactory($window) {
     /**
      * Convert strings like cmd into symbols like ⌘
      * @param  {String} combo Key combination, e.g. 'mod+f'
@@ -59,8 +61,21 @@
           } else {
             symbol = 'ctrl';
           }
-        } else if (value === 'alt' && ($window.navigator && $window.navigator.platform.indexOf('Mac') >=0 )) {
-          symbol = 'option';
+        } else if (value === 'alt' || value === 'option') {
+          if ($window.navigator && $window.navigator.platform.indexOf('Mac') >=0 ) {
+            switch (config.macAlt) {
+              case 'symbol':
+                symbol = 'opt';
+                break;
+              case 'alt':
+                symbol = 'alt';
+                break;
+              default:
+                symbol = 'option';
+            }
+          } else {
+            symbol = 'alt';
+          }
         }
 
         return map[symbol] || symbol;
@@ -115,7 +130,17 @@
     };
 
     return Hotkey;
-  }]);
+  }
+
+  hotkeyFactory.$inject = ['$window'];
+
+  var config = {
+    macAlt: 'option',
+    $get: hotkeyFactory
+  };
+
+  return config;
+});
 })();
 (function() {
 
