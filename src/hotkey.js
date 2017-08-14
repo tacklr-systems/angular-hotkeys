@@ -62,8 +62,9 @@
      * @param {string}   action      the type of event to listen for (for mousetrap)
      * @param {array}    allowIn     an array of tag names to allow this combo in ('INPUT', 'SELECT', and/or 'TEXTAREA')
      * @param {Boolean}  persistent  Whether the hotkey persists navigation events
+     * @param {string}   identifier  optional identifier for the shortcut
      */
-    function Hotkey (combo, description, callback, action, allowIn, persistent) {
+    function Hotkey (combo, description, callback, action, allowIn, persistent, identifier) {
       // TODO: Check that the values are sane because we could
       // be trying to instantiate a new Hotkey with outside dev's
       // supplied values
@@ -75,6 +76,7 @@
       this.allowIn = allowIn;
       this.persistent = persistent;
       this._formated = null;
+      this.identifier = identifier;
     }
 
     /**

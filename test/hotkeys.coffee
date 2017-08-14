@@ -64,6 +64,15 @@ describe 'Angular Hotkeys', ->
     hotkeys.del 'w'
     expect(hotkeys.get('w')).toBe false
 
+  it 'getById()', ->
+    cfg =
+      combo:'t e s t'
+      callback:->
+      identifier:'test'
+    hotkeys.add cfg
+
+    expect(hotkeys.getById('test').length).toEqual 1
+
   it 'should toggle help when ? is pressed', ->
     expect(angular.element($rootElement).children().hasClass('in')).toBe false
     KeyEvent.simulate('?'.charCodeAt(0), 90)

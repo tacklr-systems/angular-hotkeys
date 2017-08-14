@@ -126,8 +126,9 @@
        * @param {string}   action      the type of event to listen for (for mousetrap)
        * @param {array}    allowIn     an array of tag names to allow this combo in ('INPUT', 'SELECT', and/or 'TEXTAREA')
        * @param {boolean}  persistent  if true, the binding is preserved upon route changes
+       * @param {string}   identifier  optional identifier for the shortcut
        */
-      function _add(combo, description, callback, action, allowIn, persistent) {
+      function _add(combo, description, callback, action, allowIn, persistent, identifier) {
 
           // used to save original callback for "allowIn" wrapping:
           var _callback;
@@ -144,6 +145,7 @@
             action      = combo.action;
             persistent  = combo.persistent;
             allowIn     = combo.allowIn;
+            identifier  = combo.identifier;
             combo       = combo.combo;
           }
 
@@ -225,7 +227,7 @@
             Mousetrap.bind(combo, wrapApply(callback));
           }
 
-          var hotkey = new Hotkey(combo, description, callback, action, allowIn, persistent);
+          var hotkey = new Hotkey(combo, description, callback, action, allowIn, persistent, identifier);
           scope.hotkeys.push(hotkey);
           return hotkey;
       }
@@ -298,6 +300,24 @@
         }
 
         return false;
+      }
+
+      /**
+       * returns all the shortcuts that match the identifier
+       * @param {string} identifier  identifier for the shortcut
+       */
+      function _getById(identifier) {
+        var results = []
+
+        for (var i = 0; i < scope.hotkeys.length; i++) {
+          var hotkey = scope.hotkeys[i];
+
+          if (hotkey.identifier === identifier) {
+            results.push(hotkey);
+          }
+        }
+
+        return results;
       }
 
       /**
@@ -382,7 +402,7 @@
       }
 
       function _all() {
-        return scope.hotkeys;
+        return _get();
       }
 
       var publicApi = {
@@ -390,6 +410,7 @@
         add                   : _add,
         del                   : _del,
         get                   : _get,
+        getById               : _getById,
         all                   : _all,
         bindTo                : bindTo,
         bindToState           : bindToState,
