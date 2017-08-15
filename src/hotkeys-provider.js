@@ -94,6 +94,12 @@
                   cfg.persistent = false;
                   _add(cfg);
                 });
+
+                if (stateHotkeysReadyListeners.length) {
+                  angular.forEach(stateHotkeysReadyListeners, function (callback) {
+                    callback();
+                  });
+                }
               }
             });
           }
@@ -406,6 +412,17 @@
         return _get();
       }
 
+      var stateHotkeysReadyListeners = [];
+
+      function _onStateHotkeysReady(callback) {
+        stateHotkeysReadyListeners.push(callback);
+
+        return function () {
+          var index = stateHotkeysReadyListeners.indexOf(callback);
+          stateHotkeysReadyListeners.splice(index, 1);
+        };
+      }
+
       var publicApi = {
         init                  : init,
         add                   : _add,
@@ -419,7 +436,8 @@
         usNgState             : config.useNgState,
         purgeHotkeys          : purgeHotkeys,
         pause                 : pause,
-        unpause               : unpause
+        unpause               : unpause,
+        onStateHotkeysReady   : _onStateHotkeysReady
       };
 
       return publicApi;
