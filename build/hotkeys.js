@@ -454,12 +454,13 @@
        */
       function _getById(identifier) {
         var results = [];
+        if (scope.hotkeys) {
+          for (var i = 0; i < scope.hotkeys.length; i++) {
+            var hotkey = scope.hotkeys[i];
 
-        for (var i = 0; i < scope.hotkeys.length; i++) {
-          var hotkey = scope.hotkeys[i];
-
-          if (hotkey.identifier === identifier) {
-            results.push(hotkey);
+            if (hotkey.identifier === identifier) {
+              results.push(hotkey);
+            }
           }
         }
 
