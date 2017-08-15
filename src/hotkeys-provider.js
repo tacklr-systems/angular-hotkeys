@@ -307,7 +307,7 @@
        * @param {string} identifier  identifier for the shortcut
        */
       function _getById(identifier) {
-        var results = []
+        var results = [];
 
         for (var i = 0; i < scope.hotkeys.length; i++) {
           var hotkey = scope.hotkeys[i];
