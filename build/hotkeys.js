@@ -382,46 +382,42 @@
       /**
        * delete and unbind a Hotkey
        *
-       * @param  {mixed} hotkey   Either the bound key or an instance of Hotkey
+       * @param  {mixed} key   Either the bound key or an instance of Hotkey
        * @return {boolean}        true if successful
        */
-      function _del(hotkey) {
-        var combo = (hotkey instanceof Hotkey) ? hotkey.combo : hotkey;
+      function _del(key) {
+        var result = false;
+        var combos = (key instanceof Hotkey) ? key.combo : angular.isArray(key) ? key: [key];
+        var hotkey = (key instanceof Hotkey) ? key : _get(combos[0]);
+        var hotkeyIndex = scope.hotkeys.indexOf(hotkey);
 
-        Mousetrap.unbind(combo);
-
-        if (angular.isArray(combo)) {
-          var retStatus = true;
-          var i = combo.length;
-          while (i--) {
-            retStatus = _del(combo[i]) && retStatus;
-          }
-          return retStatus;
-        } else {
-          var index = scope.hotkeys.indexOf(_get(combo));
-
-          if (index > -1) {
-            // if the combo has other combos bound, don't unbind the whole thing, just the one combo:
-            if (scope.hotkeys[index].combo.length > 1) {
-              scope.hotkeys[index].combo.splice(scope.hotkeys[index].combo.indexOf(combo), 1);
-            } else {
-
-              // remove hotkey from bound scopes
-              angular.forEach(boundScopes, function (boundScope) {
-                var scopeIndex = boundScope.indexOf(scope.hotkeys[index]);
-
-                if (scopeIndex !== -1) {
-                  boundScope.splice(scopeIndex, 1);
-                }
-              });
-
-              scope.hotkeys.splice(index, 1);
-            }
-            return true;
-          }
+        for (var i = 0; i< combos.length; i++) {
+          Mousetrap.unbind(combos[i]);
         }
 
-        return false;
+        if (key instanceof Hotkey || (hotkey && hotkey.combo.length <= combos.length)){
+          // remove hotkey from bound scopes
+          angular.forEach(boundScopes, function (boundScope) {
+            var scopeIndex = boundScope.indexOf(hotkey);
+
+            if (scopeIndex !== -1) {
+              boundScope.splice(scopeIndex, 1);
+            }
+          });
+
+          scope.hotkeys.splice(hotkeyIndex, 1);
+          result = true;
+        } else if(hotkey) {
+          var newCombos = [];
+          for(var j = 0; j < hotkey.combo.length; j++) {
+            if (combos.indexOf(hotkey.combo[j]) === -1) {
+              newCombos.push(hotkey.combo[j]);
+            }
+          }
+          hotkey.combo = newCombos;
+        }
+
+        return result;
       }
 
       /**
@@ -437,12 +433,15 @@
         }
 
         var hotkey;
+        var combos = angular.isArray(combo) ? combo : [combo];
 
         for (var i = 0; i < scope.hotkeys.length; i++) {
           hotkey = scope.hotkeys[i];
 
-          if (hotkey.combo.indexOf(combo) > -1) {
-            return hotkey;
+          for(var j = 0; j< combos.length; j++) {
+            if (hotkey.combo.indexOf(combos[j]) > -1) {
+              return hotkey;
+            }
           }
         }
 
