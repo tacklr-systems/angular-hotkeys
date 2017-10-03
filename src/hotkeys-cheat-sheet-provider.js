@@ -111,7 +111,10 @@
         '<table><tbody>' +
           '<tr ng-repeat="hotkey in hotkeys | filter:{ description: \'!$$undefined$$\' }">' +
               '<td class="cfp-hotkeys-keys">' +
-              '<span ng-repeat="key in hotkey.format() track by $index" class="cfp-hotkeys-key">{{ key }}</span>' +
+                  '<span ng-repeat-start="combo in hotkey.format() track by $index">' +
+                    '<span class="cfp-hotkeys-key" ng-repeat="key in combo track by $index">{{ key }}</span>' +
+                  '</span>' +
+                  '<span ng-repeat-end class="cfp-hotkeys-keys-separator" ng-if="!$last">or</span>' +
               '</td>' +
               '<td class="cfp-hotkeys-text">{{ hotkey.description }}</td>' +
           '</tr>' +
