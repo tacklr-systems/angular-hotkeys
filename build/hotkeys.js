@@ -1,7 +1,7 @@
 /*! 
  * angular-hotkeys v1.7.0
  * https://chieffancypants.github.io/angular-hotkeys
- * Copyright (c) 2017 Wes Cruver
+ * Copyright (c) 2018 Wes Cruver
  * License: MIT
  */
 /*
@@ -143,7 +143,7 @@
 
   'use strict';
   angular.module('cfp.hotkeys').provider('hotkeys', ['$injector', function($injector) {
-    function hotkeysProviderFactory($rootElement, $rootScope, $compile, $window, Hotkey) {
+    function hotkeysProviderFactory($rootElement, $rootScope, $compile, $window, Hotkey, $timeout) {
       var initialized = false;
 
       var mouseTrapEnabled = true;
@@ -155,6 +155,43 @@
       function unpause() {
         mouseTrapEnabled = true;
       }
+
+      function updateStateHotKeys(toState) {
+        purgeHotkeys();
+        if (boundStates && boundStates[toState.name]) {
+
+          angular.forEach(boundStates[toState.name], function (cfg) {
+            cfg.persistent = false;
+            _add(cfg);
+          });
+
+          if (stateHotkeysReadyListeners.length) {
+            angular.forEach(stateHotkeysReadyListeners, function (callback) {
+              callback();
+            });
+          }
+        }
+      }
+
+      var initNgTransitionHookTries = 3;
+
+      function initNgTransitionHook() {
+        try {
+          var $transitions = $injector.get('$transitionsProvider');
+
+            $transitions.onSuccess({}, function (transition) {
+              updateStateHotKeys(transition.to());
+            });
+        } catch(e) {
+          initNgTransitionHookTries--;
+
+          if (initNgTransitionHookTries) {
+            $timeout(initNgTransitionHook, 1000);
+          }
+        }
+      }
+
+
 
       // monkeypatch Mousetrap's stopCallback() function
       // this version doesn't return true when the element is an INPUT, SELECT, or TEXTAREA
@@ -228,21 +265,12 @@
 
           if (config.useNgState) {
             $rootScope.$on('$stateChangeSuccess', function (event, toState) {
-              purgeHotkeys();
-              if (boundStates && boundStates[toState.name]) {
-
-                angular.forEach(boundStates[toState.name], function (cfg) {
-                  cfg.persistent = false;
-                  _add(cfg);
-                });
-
-                if (stateHotkeysReadyListeners.length) {
-                  angular.forEach(stateHotkeysReadyListeners, function (callback) {
-                    callback();
-                  });
-                }
-              }
+              updateStateHotKeys(toState);
             });
+          }
+
+          if (config.useNgTransitionHooks) {
+            initNgTransitionHook();
           }
 
         }
@@ -584,11 +612,12 @@
 
     }
 
-    hotkeysProviderFactory.$inject = ['$rootElement', '$rootScope', '$compile', '$window', 'HotKey'];
+    hotkeysProviderFactory.$inject = ['$rootElement', '$rootScope', '$compile', '$window', 'HotKey', '$timeout'];
 
     var config = {
       useNgRoute: $injector.has('ngViewDirective'),
       useNgState: false,
+      useNgTransitionHooks: $injector.has('$transitions'),
       $get: hotkeysProviderFactory
     };
 
