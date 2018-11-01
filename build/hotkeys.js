@@ -40,7 +40,7 @@
      */
     function symbolize (combo) {
       var map = {
-        command   : '\u2318',     // ⌘
+    command   : '\u2318',     // ⌘
         shift     : '\u21E7',     // ⇧
         left      : '\u2190',     // ←
         right     : '\u2192',     // →
@@ -48,7 +48,7 @@
         down      : '\u2193',     // ↓
         'return'  : '\u23CE',     // ⏎
         backspace : '\u232B',     // ⌫
-        option    : '\u2325'      // ⌥
+        option    : '\u2325',     // ⌥
       };
 
       return combo.split('+').map(function(value) {
@@ -1060,7 +1060,8 @@
      * @param {Event} e
      * @returns {Array}
      */
-    function _eventModifiers(e) {
+    function _eventModifiers(e, pressedKeys) {
+
         var modifiers = [];
 
         if (e.shiftKey) {
@@ -1078,6 +1079,13 @@
         if (e.metaKey) {
             modifiers.push('meta');
         }
+
+    //add tab pressed event
+    if (!!pressedKeys)
+    {
+      for(var k in pressedKeys) 
+        if(!!k) modifiers.push(k);
+    }
 
         return modifiers;
     }
@@ -1119,7 +1127,7 @@
      * @returns {boolean}
      */
     function _isModifier(key) {
-        return key == 'shift' || key == 'ctrl' || key == 'alt' || key == 'meta';
+        return key == 'shift' || key == 'ctrl' || key == 'alt' || key == 'tab' || key == 'meta';
     }
 
     /**
@@ -1315,6 +1323,13 @@
          */
         var _nextExpectedAction = false;
 
+    /**
+         * maintains state of currently pressed keys (ie tab)
+         *
+         * @type {boolean|string}
+         */
+    var _pressedKeys = {};
+
         /**
          * resets all sequence counters except for the ones passed in
          *
@@ -1359,6 +1374,7 @@
             var action = e.type;
 
             // if there are no events related to this keycode
+      //  .. and not tab modifier
             if (!self._callbacks[character]) {
                 return [];
             }
@@ -1444,6 +1460,9 @@
          * @returns void
          */
         self._handleKey = function(character, modifiers, e) {
+
+      //if (character == "f") debugger;
+
             var callbacks = _getMatches(character, modifiers, e);
             var i;
             var doNotReset = {};
@@ -1550,7 +1569,11 @@
                 return;
             }
 
-            self.handleKey(character, _eventModifiers(e), e);
+            self.handleKey(character, _eventModifiers(e, _pressedKeys), e);
+
+      //track key pressed state
+      if (e.type == 'keydown' && (character != "ctrl" && character != "alt" && character != "shift" && character != "meta")) _pressedKeys[character] = true;
+      if (e.type == 'keyup') delete _pressedKeys[character];
         }
 
         /**
@@ -1705,6 +1728,7 @@
         _addEvent(targetElement, 'keypress', _handleKeyEvent);
         _addEvent(targetElement, 'keydown', _handleKeyEvent);
         _addEvent(targetElement, 'keyup', _handleKeyEvent);
+
     }
 
     /**

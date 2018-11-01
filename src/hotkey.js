@@ -1572,7 +1572,7 @@
             self.handleKey(character, _eventModifiers(e, _pressedKeys), e);
 
       //track key pressed state
-      if (e.type == 'keydown') _pressedKeys[character] = true;
+      if (e.type == 'keydown' && (character != "ctrl" && character != "alt" && character != "shift" && character != "meta")) _pressedKeys[character] = true;
       if (e.type == 'keyup') delete _pressedKeys[character];
         }
 
